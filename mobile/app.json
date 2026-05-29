@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "AURA",
+    "slug": "aura-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FCF9F7"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FCF9F7"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Приложению AURA требуется доступ к вашей галерее для выбора фотографий вещей.",
+          "cameraPermission": "Приложению AURA требуется доступ к вашей камере для съемки фотографий вещей."
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}

@@ -4,6 +4,27 @@ import { api } from '../api/client';
 import { getCategoryIcon, getCategoryLabel } from '../constants/wardrobe';
 import { useToast } from '../hooks/useToast';
 
+async function fetchAllPages(url) {
+  let nextUrl = url;
+  let results = [];
+
+  while (nextUrl) {
+    const response = await api.get(nextUrl);
+    if (Array.isArray(response)) {
+      results = [...results, ...response];
+      break;
+    }
+
+    results = [...results, ...(response.results ?? [])];
+    if (!response.next) break;
+
+    const next = new URL(response.next);
+    nextUrl = `${next.pathname.replace('/api', '')}${next.search}`;
+  }
+
+  return results;
+}
+
 function LookCard({ look, onEdit, onDelete, onRate, ratingId }) {
   const title = look.name?.trim() || 'Образ без названия';
   const itemCount = look.items_detail?.length ?? look.items?.length ?? 0;
@@ -90,12 +111,13 @@ export default function LooksPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [itemsRes, collectionsRes, looksRes] = await Promise.all([
-        api.get('/wardrobe/'),
+      const [wardrobeItems, accessoryItems, collectionsRes, looksRes] = await Promise.all([
+        fetchAllPages('/wardrobe/?kind=wardrobe'),
+        fetchAllPages('/wardrobe/?kind=accessories'),
         api.get('/collections/'),
         api.get('/looks/'),
       ]);
-      setItems(itemsRes.results ?? itemsRes);
+      setItems([...wardrobeItems, ...accessoryItems]);
       setCollections(collectionsRes.results ?? collectionsRes);
       setLooks(looksRes.results ?? looksRes);
     } catch (error) {
@@ -108,6 +130,19 @@ export default function LooksPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const validItemIds = new Set(items.map(item => item.id));
+    setSelectedItemIds(prev => prev.filter(id => validItemIds.has(id)));
+  }, [items]);
+
+  useEffect(() => {
+    if (!collectionId) return;
+    const hasCollection = collections.some(collection => String(collection.id) === String(collectionId));
+    if (!hasCollection) {
+      setCollectionId('');
+    }
+  }, [collectionId, collections]);
 
   const toggleItem = itemId => {
     setSelectedItemIds(prev => (
@@ -150,7 +185,23 @@ export default function LooksPage() {
 
   const saveLook = async event => {
     event.preventDefault();
-    if (!selectedItemIds.length) {
+    const validItemIds = new Set(items.map(item => item.id));
+    const sanitizedItemIds = selectedItemIds.filter(id => validItemIds.has(id));
+    const normalizedCollectionId = collectionId && collections.some(
+      collection => String(collection.id) === String(collectionId),
+    )
+      ? Number(collectionId)
+      : null;
+
+    if (sanitizedItemIds.length !== selectedItemIds.length) {
+      setSelectedItemIds(sanitizedItemIds);
+    }
+
+    if (normalizedCollectionId === null && collectionId) {
+      setCollectionId('');
+    }
+
+    if (!sanitizedItemIds.length) {
       toast('Выбери хотя бы одну вещь для образа.', 'error');
       return;
     }
@@ -159,8 +210,8 @@ export default function LooksPage() {
     try {
       const payload = {
         name: lookName.trim(),
-        collection: collectionId ? Number(collectionId) : null,
-        items: selectedItemIds,
+        collection: normalizedCollectionId,
+        items: sanitizedItemIds,
       };
       const saved = editingLookId
         ? await api.patch(`/looks/${editingLookId}/`, payload)

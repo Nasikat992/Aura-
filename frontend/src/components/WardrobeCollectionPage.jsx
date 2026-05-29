@@ -4,6 +4,36 @@ import { api } from '../api/client';
 import { useToast } from '../hooks/useToast';
 import { getCategoryIcon, getCategoryLabel, getCategoryOptions, SEASONS } from '../constants/wardrobe';
 
+function normalizePurchaseDate(value) {
+  if (!value || typeof value !== 'string') return '';
+  const isoMatch = value.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (isoMatch) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
+
+function buildItemPayload(form) {
+  const payload = {
+    name: form.name?.trim() || '',
+    category: form.category,
+    color: form.color?.trim() || '',
+    brand: form.brand?.trim() || '',
+    season: form.season,
+    notes: form.notes?.trim() || '',
+    is_favorite: Boolean(form.is_favorite),
+  };
+
+  const purchaseDate = normalizePurchaseDate(form.purchase_date);
+  if (purchaseDate) {
+    payload.purchase_date = purchaseDate;
+  } else {
+    payload.purchase_date = null;
+  }
+
+  return payload;
+}
+
 function ItemModal({ item, kind, onClose, onSaved }) {
   const toast = useToast();
   const categoryOptions = getCategoryOptions(kind);
@@ -13,9 +43,11 @@ function ItemModal({ item, kind, onClose, onSaved }) {
     color: '',
     brand: '',
     season: 'all',
+    purchase_date: '',
     notes: '',
     is_favorite: false,
     ...(item || {}),
+    purchase_date: normalizePurchaseDate(item?.purchase_date),
   });
   const [loading, setLoading] = useState(false);
   const [imgFile, setImgFile] = useState(null);
@@ -30,18 +62,22 @@ function ItemModal({ item, kind, onClose, onSaved }) {
     event.preventDefault();
     setLoading(true);
     try {
+      const payload = buildItemPayload(form);
       let result;
       if (imgFile) {
         const data = new FormData();
-        Object.entries(form).forEach(([key, value]) => data.append(key, value));
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value === null || value === undefined) return;
+          data.append(key, value);
+        });
         data.append('image', imgFile);
         result = item
           ? await api.upload(`/wardrobe/${item.id}/`, data, 'PATCH')
           : await api.upload('/wardrobe/', data);
       } else {
         result = item
-          ? await api.patch(`/wardrobe/${item.id}/`, form)
-          : await api.post('/wardrobe/', form);
+          ? await api.patch(`/wardrobe/${item.id}/`, payload)
+          : await api.post('/wardrobe/', payload);
       }
       toast(item ? '✅ Вещь обновлена!' : '✅ Вещь добавлена!', 'success');
       onSaved(result);
@@ -92,6 +128,16 @@ function ItemModal({ item, kind, onClose, onSaved }) {
             <div className="form-group">
               <label className="form-label">Бренд</label>
               <input name="brand" value={form.brand} onChange={handle} className="form-control" placeholder="Massimo Dutti" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Дата покупки</label>
+              <input
+                name="purchase_date"
+                type="date"
+                value={form.purchase_date}
+                onChange={handle}
+                className="form-control"
+              />
             </div>
             <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 28 }}>
               <input

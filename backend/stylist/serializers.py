@@ -4,6 +4,20 @@ from rest_framework import serializers
 from .models import AIRecommendation, ChatMessage, ChatSession, Collection, Look, UserProfile, WardrobeItem
 
 
+class LenientPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    def __init__(self, *args, invalid_behavior='error', **kwargs):
+        self.invalid_behavior = invalid_behavior
+        super().__init__(*args, **kwargs)
+
+    def to_internal_value(self, data):
+        try:
+            return super().to_internal_value(data)
+        except serializers.ValidationError:
+            if self.invalid_behavior == 'null':
+                return None
+            raise
+
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -64,7 +78,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         user = User(**validated_data)
         user.set_password(password)
         user.save()
-        UserProfile.objects.create(user=user)
+        UserProfile.objects.get_or_create(user=user)
         return user
 
 
@@ -155,14 +169,16 @@ class CollectionSerializer(serializers.ModelSerializer):
 
 
 class LookSerializer(serializers.ModelSerializer):
-    collection = serializers.PrimaryKeyRelatedField(
+    collection = LenientPrimaryKeyRelatedField(
         queryset=Collection.objects.none(),
         allow_null=True,
         required=False,
+        invalid_behavior='null',
     )
-    items = serializers.PrimaryKeyRelatedField(
+    items = LenientPrimaryKeyRelatedField(
         queryset=WardrobeItem.objects.none(),
         many=True,
+        invalid_behavior='null',
     )
     collection_detail = CollectionSerializer(source='collection', read_only=True)
     items_detail = WardrobeItemSerializer(source='items', many=True, read_only=True)
@@ -188,8 +204,10 @@ class LookSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             self.fields['collection'].queryset = Collection.objects.filter(user=request.user)
             self.fields['items'].queryset = WardrobeItem.objects.filter(user=request.user)
+            self.fields['items'].child_relation.queryset = WardrobeItem.objects.filter(user=request.user)
 
     def validate_items(self, items):
+        items = [item for item in items if item is not None]
         if not items:
-            raise serializers.ValidationError('Добавь хотя бы одну вещь в образ.')
+            raise serializers.ValidationError('Добавь хотя бы одну существующую вещь в образ.')
         return items
