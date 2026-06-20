@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { api } from '../api/client';
 import { useToast } from '../hooks/useToast';
 import { getCategoryIcon, getCategoryLabel, getCategoryOptions, SEASONS } from '../constants/wardrobe';
+
+const ITEMS_PER_PAGE = 15;
 
 function normalizePurchaseDate(value) {
   if (!value || typeof value !== 'string') return '';
@@ -25,11 +28,7 @@ function buildItemPayload(form) {
   };
 
   const purchaseDate = normalizePurchaseDate(form.purchase_date);
-  if (purchaseDate) {
-    payload.purchase_date = purchaseDate;
-  } else {
-    payload.purchase_date = null;
-  }
+  payload.purchase_date = purchaseDate || null;
 
   return payload;
 }
@@ -186,6 +185,67 @@ function ItemModal({ item, kind, onClose, onSaved }) {
   );
 }
 
+/* ── Pagination component ── */
+function Pagination({ currentPage, totalPages, baseUrl }) {
+  const navigate = useNavigate();
+
+  if (totalPages <= 1) return null;
+
+  const goTo = page => navigate(`${baseUrl}/page/${page}`);
+
+  // Build page number list with ellipsis
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (
+      i === 1 ||
+      i === totalPages ||
+      (i >= currentPage - 1 && i <= currentPage + 1)
+    ) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== '…') {
+      pages.push('…');
+    }
+  }
+
+  return (
+    <div className="pagination">
+      <button
+        className="pagination-btn"
+        onClick={() => goTo(currentPage - 1)}
+        disabled={currentPage <= 1}
+        aria-label="Предыдущая страница"
+      >
+        ‹
+      </button>
+
+      {pages.map((page, idx) =>
+        page === '…' ? (
+          <span key={`ellipsis-${idx}`} className="pagination-ellipsis">…</span>
+        ) : (
+          <button
+            key={page}
+            className={`pagination-btn${page === currentPage ? ' pagination-btn--active' : ''}`}
+            onClick={() => goTo(page)}
+            aria-label={`Страница ${page}`}
+            aria-current={page === currentPage ? 'page' : undefined}
+          >
+            {page}
+          </button>
+        )
+      )}
+
+      <button
+        className="pagination-btn"
+        onClick={() => goTo(currentPage + 1)}
+        disabled={currentPage >= totalPages}
+        aria-label="Следующая страница"
+      >
+        ›
+      </button>
+    </div>
+  );
+}
+
 export default function WardrobeCollectionPage({
   kind,
   pageTag,
@@ -195,8 +255,13 @@ export default function WardrobeCollectionPage({
   emptyTitle,
   emptyDesc,
   addLabel,
+  baseUrl = '/wardrobe',
 }) {
   const toast = useToast();
+  const navigate = useNavigate();
+  const { page: pageParam } = useParams();
+  const currentPage = Math.max(1, parseInt(pageParam, 10) || 1);
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -226,12 +291,26 @@ export default function WardrobeCollectionPage({
     load();
   }, [kind, filter.category, filter.season, filter.search]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      navigate(`${baseUrl}/page/1`, { replace: true });
+    }
+  }, [filter.category, filter.season, filter.search]);
+
+  const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
+  const safeCurrentPage = Math.min(currentPage, totalPages || 1);
+  const pagedItems = items.slice(
+    (safeCurrentPage - 1) * ITEMS_PER_PAGE,
+    safeCurrentPage * ITEMS_PER_PAGE,
+  );
+
   const toggleFav = async item => {
     try {
       const response = await api.post(`/wardrobe/${item.id}/toggle_favorite/`);
-      setItems(prev => prev.map(entry => (
+      setItems(prev => prev.map(entry =>
         entry.id === item.id ? { ...entry, is_favorite: response.is_favorite } : entry
-      )));
+      ));
       setStats(prev => ({
         ...prev,
         favorites: Math.max(
@@ -268,42 +347,45 @@ export default function WardrobeCollectionPage({
     load();
   };
 
+  const statCards = [
+    { icon: kind === 'accessories' ? '👜' : '👗', val: stats.total ?? 0, label: kind === 'accessories' ? 'Всего аксессуаров' : 'Всего вещей' },
+    { icon: '❤️', val: stats.favorites ?? 0, label: 'Любимых' },
+    { icon: '📚', val: stats.by_category?.length ?? 0, label: 'Категорий' },
+  ];
+
   return (
     <div className="fade-up">
+      {/* ── Header ── */}
       <div className="page-header">
         <div className="page-tag">{pageTag}</div>
         <h1 className="page-title">{title}</h1>
         <p className="page-subtitle">{subtitle}</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
-        {[
-          { icon: kind === 'accessories' ? '👜' : '👗', val: stats.total ?? 0, label: kind === 'accessories' ? 'Всего аксессуаров' : 'Всего вещей' },
-          { icon: '❤️', val: stats.favorites ?? 0, label: 'Любимых' },
-          { icon: '📚', val: stats.by_category?.length ?? 0, label: 'Категорий' },
-        ].map(card => (
-          <div key={card.label} className="card-sm" style={{ flex: 1, minWidth: 140, textAlign: 'center' }}>
-            <div style={{ fontSize: 22 }}>{card.icon}</div>
-            <div style={{ fontFamily: 'Cormorant Garamond,serif', fontSize: 26, color: 'var(--rose-deep)' }}>{card.val}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{card.label}</div>
+      {/* ── Stat cards ── */}
+      <div className="wardrobe-stats-row">
+        {statCards.map(card => (
+          <div key={card.label} className="wardrobe-stat-card">
+            <div className="wardrobe-stat-icon">{card.icon}</div>
+            <div className="wardrobe-stat-num">{card.val}</div>
+            <div className="wardrobe-stat-label">{card.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="flex-between mb-6" style={{ flexWrap: 'wrap', gap: 12 }}>
-        <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+      {/* ── Filters + Add button ── */}
+      <div className="wardrobe-toolbar">
+        <div className="wardrobe-filters">
           <input
             placeholder="🔍 Поиск..."
             value={filter.search}
             onChange={event => setFilter(prev => ({ ...prev, search: event.target.value }))}
-            className="form-control"
-            style={{ width: 220 }}
+            className="form-control wardrobe-search"
           />
           <select
             value={filter.category}
             onChange={event => setFilter(prev => ({ ...prev, category: event.target.value }))}
-            className="form-control"
-            style={{ width: 240 }}
+            className="form-control wardrobe-select"
           >
             <option value="">Все категории</option>
             {categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -311,18 +393,19 @@ export default function WardrobeCollectionPage({
           <select
             value={filter.season}
             onChange={event => setFilter(prev => ({ ...prev, season: event.target.value }))}
-            className="form-control"
-            style={{ width: 160 }}
+            className="form-control wardrobe-select wardrobe-select--sm"
           >
             <option value="">Все сезоны</option>
             {SEASONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
-        <button className="btn btn-primary" onClick={() => setModal('new')}>
+
+        <button className="btn btn-primary wardrobe-add-btn" onClick={() => setModal('new')}>
           {addLabel}
         </button>
       </div>
 
+      {/* ── Content ── */}
       {loading ? (
         <div className="loading-overlay">
           <span className="spinner spinner-dark" /> Загружаем коллекцию...
@@ -335,36 +418,53 @@ export default function WardrobeCollectionPage({
           <button className="btn btn-primary" onClick={() => setModal('new')}>{addLabel}</button>
         </div>
       ) : (
-        <div className="grid-auto stagger">
-          {items.map(item => (
-            <div key={item.id} className="item-card fade-up" onClick={() => setModal(item)}>
-              <div className="item-img">
-                {item.image_url ? <img src={item.image_url} alt={item.name} /> : <span>{getCategoryIcon(item.category)}</span>}
-                <button className="item-fav" onClick={event => { event.stopPropagation(); toggleFav(item); }}>
-                  {item.is_favorite ? '❤️' : '🤍'}
-                </button>
-              </div>
-              <div className="item-body">
-                <div className="item-name">{item.name}</div>
-                <div className="item-meta">
-                  {item.brand || 'без бренда'} · {item.color || 'цвет не указан'}
+        <>
+          <div className="grid-auto stagger">
+            {pagedItems.map(item => (
+              <div key={item.id} className="item-card fade-up" onClick={() => setModal(item)}>
+                <div className="item-img">
+                  {item.image_url ? <img src={item.image_url} alt={item.name} /> : <span>{getCategoryIcon(item.category)}</span>}
+                  <button className="item-fav" onClick={event => { event.stopPropagation(); toggleFav(item); }}>
+                    {item.is_favorite ? '❤️' : '🤍'}
+                  </button>
+                </div>
+                <div className="item-body">
+                  <div className="item-name">{item.name}</div>
+                  <div className="item-meta">
+                    {item.brand || 'без бренда'} · {item.color || 'цвет не указан'}
+                  </div>
+                </div>
+                <div className="item-footer">
+                  <span className={`category-pill cat-${item.category}`}>{item.category_label || getCategoryLabel(item.category)}</span>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    style={{ padding: '4px 10px', fontSize: 11 }}
+                    onClick={event => { event.stopPropagation(); deleteItem(item.id); }}
+                  >
+                    🗑
+                  </button>
                 </div>
               </div>
-              <div className="item-footer">
-                <span className={`category-pill cat-${item.category}`}>{item.category_label || getCategoryLabel(item.category)}</span>
-                <button
-                  className="btn btn-danger btn-sm"
-                  style={{ padding: '4px 10px', fontSize: 11 }}
-                  onClick={event => { event.stopPropagation(); deleteItem(item.id); }}
-                >
-                  🗑
-                </button>
-              </div>
+            ))}
+          </div>
+
+          {/* ── Pagination ── */}
+          {totalPages > 1 && (
+            <div className="wardrobe-pagination-row">
+              <span className="pagination-info">
+                Показано {(safeCurrentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safeCurrentPage * ITEMS_PER_PAGE, items.length)} из {items.length}
+              </span>
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                baseUrl={baseUrl}
+              />
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
+      {/* ── Modal ── */}
       {modal && (
         <ItemModal
           item={modal === 'new' ? null : modal}

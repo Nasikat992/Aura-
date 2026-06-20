@@ -17,6 +17,12 @@ class UserProfile(models.Model):
         ('free', 'Базовый'),
         ('pro', 'Pro'),
     ]
+    GENDER_CHOICES = [
+        ('woman', 'Женщина'),
+        ('man', 'Мужчина'),
+        ('non_binary', 'Небинарный'),
+        ('prefer_not_to_say', 'Предпочитаю не указывать'),
+    ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     plan_type = models.CharField(max_length=10, choices=PLAN_CHOICES, default='free')
@@ -27,6 +33,7 @@ class UserProfile(models.Model):
     last_limit_reset = models.DateField(auto_now_add=True)
 
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    gender = models.CharField(max_length=32, choices=GENDER_CHOICES, blank=True)
     bio = models.TextField(blank=True)
     occupation = models.CharField(max_length=120, blank=True, verbose_name='Роль / занятие')
     lifestyle = models.CharField(max_length=120, blank=True, verbose_name='Образ жизни')
@@ -206,6 +213,8 @@ class ChatMessage(models.Model):
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, verbose_name='Роль')
     content = models.TextField(verbose_name='Сообщение')
+    image = models.ImageField(upload_to='chat/generated_outfits/', blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

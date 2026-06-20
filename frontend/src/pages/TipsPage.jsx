@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client';
+import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 
 const ALL_EXAMPLES = [
@@ -115,6 +116,8 @@ const parseOutfitRecommendation = (content) => {
 
 export default function TipsPage() {
   const toast = useToast();
+  const { profile } = useAuth();
+  const messagesEndRef = useRef(null);
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -161,6 +164,10 @@ export default function TipsPage() {
   useEffect(() => {
     loadMessages(activeSessionId);
   }, [activeSessionId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const createSession = async (firstPrompt = '') => {
     const created = await api.post('/chat-sessions/', {
@@ -308,11 +315,38 @@ export default function TipsPage() {
                 {messages.map(message => {
                   const outfitRecommendation = message.role === 'assistant' ? parseOutfitRecommendation(message.content) : null;
                   
+                  let displayContent = message.content;
+                  let imageUrl = message.image_url;
+
+                  // Parse image URL from content if it was saved as text in the database
+                  if (!imageUrl && displayContent) {
+                    if (displayContent.includes('image.pollinations.ai')) {
+                      const match = displayContent.match(/(https:\/\/image\.pollinations\.ai[^\s]+)/);
+                      if (match) {
+                        imageUrl = match[1];
+                        displayContent = displayContent.replace(imageUrl, '').trim();
+                      }
+                    } else if (displayContent.includes('data:image/')) {
+                      const match = displayContent.match(/(data:image\/[^\s]+)/);
+                      if (match) {
+                        imageUrl = match[1];
+                        displayContent = displayContent.replace(imageUrl, '').trim();
+                      }
+                    }
+                  }
+                  
                   return (
                     <div key={message.id} className={`chat-message ${message.role}`}>
                       <div className="chat-bubble">
                         <div className="chat-role">{message.role === 'assistant' ? 'AURA' : 'Ты'}</div>
-                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{message.content}</div>
+                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{displayContent}</div>
+                        {imageUrl && (
+                          <img
+                            src={imageUrl}
+                            alt="AI примерка образа"
+                            className="chat-generated-image"
+                          />
+                        )}
                         {outfitRecommendation && (
                           <OutfitRecommendationCard recommendation={outfitRecommendation} />
                         )}
@@ -320,6 +354,7 @@ export default function TipsPage() {
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
             )}
           </div>

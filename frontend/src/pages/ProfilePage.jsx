@@ -4,12 +4,20 @@ import { api } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 
+const GENDER_LABELS = {
+  woman: 'Женщина',
+  man: 'Мужчина',
+  non_binary: 'Небинарный',
+  prefer_not_to_say: 'Предпочитаю не указывать',
+};
+
 export default function ProfilePage() {
   const { profile, refreshProfile } = useAuth();
   const toast = useToast();
   const fileRef = useRef();
 
   const [form, setForm] = useState({
+    gender: profile?.gender || '',
     bio: profile?.bio || '',
     occupation: profile?.occupation || '',
     lifestyle: profile?.lifestyle || '',
@@ -24,6 +32,7 @@ export default function ProfilePage() {
 
   const resetForm = () => {
     setForm({
+      gender: profile?.gender || '',
       bio: profile?.bio || '',
       occupation: profile?.occupation || '',
       lifestyle: profile?.lifestyle || '',
@@ -109,6 +118,7 @@ export default function ProfilePage() {
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>{user.email}</div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+            {profile.gender && <span className="tag tag-sm">Пол: {GENDER_LABELS[profile.gender] || profile.gender}</span>}
             {profile.occupation && <span className="tag tag-sm">💼 {profile.occupation}</span>}
             {profile.lifestyle && <span className="tag tag-sm">🌿 {profile.lifestyle}</span>}
             {profile.favorite_occasions && <span className="tag tag-sm">📍 {profile.favorite_occasions}</span>}
@@ -139,6 +149,16 @@ export default function ProfilePage() {
               <div className="form-group">
                 <label className="form-label">Роль / занятие</label>
                 <input name="occupation" value={form.occupation} onChange={handle} className="form-control" placeholder="HR, студент, менеджер" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Пол для AI-примерки</label>
+                <select name="gender" value={form.gender} onChange={handle} className="form-control">
+                  <option value="">Не указан</option>
+                  <option value="woman">Женщина</option>
+                  <option value="man">Мужчина</option>
+                  <option value="non_binary">Небинарный</option>
+                  <option value="prefer_not_to_say">Предпочитаю не указывать</option>
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Повседневный ритм</label>

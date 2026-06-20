@@ -65,29 +65,41 @@ export default function Dashboard() {
       </div>
 
       <div className="grid-3 mb-6 stagger">
-        <button className="card fade-up" style={{ cursor: 'pointer', textAlign: 'left', border: 'none' }} onClick={() => navigate('/wardrobe')}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>👗</div>
-          <div className="section-title" style={{ fontSize: 18 }}>Гардероб</div>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
+        <button
+          className="card fade-up"
+          style={{ cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column' }}
+          onClick={() => navigate('/wardrobe')}
+        >
+          <div style={{ fontSize: 32, marginBottom: 12 }}>👗</div>
+          <div className="section-title" style={{ fontSize: 17 }}>Гардероб</div>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6, flex: 1 }}>
             Держи в порядке базовые вещи и используй их в подборе образов.
           </p>
-          <div className="btn btn-ghost btn-sm mt-4">Открыть →</div>
+          <div className="btn btn-ghost btn-sm mt-4" style={{ alignSelf: 'flex-end' }}>Открыть →</div>
         </button>
-        <button className="card fade-up" style={{ cursor: 'pointer', textAlign: 'left', border: 'none' }} onClick={() => navigate('/accessories')}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>👜</div>
-          <div className="section-title" style={{ fontSize: 18 }}>Аксессуары</div>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
+        <button
+          className="card fade-up"
+          style={{ cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column' }}
+          onClick={() => navigate('/accessories')}
+        >
+          <div style={{ fontSize: 32, marginBottom: 12 }}>👜</div>
+          <div className="section-title" style={{ fontSize: 17 }}>Аксессуары</div>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6, flex: 1 }}>
             Украшения, часы, ремни и очки теперь живут в отдельном разделе.
           </p>
-          <div className="btn btn-ghost btn-sm mt-4">Открыть →</div>
+          <div className="btn btn-ghost btn-sm mt-4" style={{ alignSelf: 'flex-end' }}>Открыть →</div>
         </button>
-        <button className="card fade-up" style={{ cursor: 'pointer', textAlign: 'left', border: 'none' }} onClick={() => navigate('/tips')}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🤖</div>
-          <div className="section-title" style={{ fontSize: 18 }}>Чат-ассистент</div>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
+        <button
+          className="card fade-up"
+          style={{ cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column' }}
+          onClick={() => navigate('/tips')}
+        >
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🤖</div>
+          <div className="section-title" style={{ fontSize: 17 }}>Чат-ассистент</div>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6, flex: 1 }}>
             Попроси собрать образ для встречи, офиса, поездки или прогулки.
           </p>
-          <div className="btn btn-ghost btn-sm mt-4">Открыть →</div>
+          <div className="btn btn-ghost btn-sm mt-4" style={{ alignSelf: 'flex-end' }}>Открыть →</div>
         </button>
       </div>
 
@@ -147,7 +159,7 @@ export default function Dashboard() {
 
       {!data || (stats.wardrobe_count === 0 && stats.accessories_count === 0 && stats.chats_count === 0) ? (
         <div className="card mt-8" style={{ textAlign: 'center', padding: '60px 40px' }}>
-          <div style={{ fontSize: 64, marginBottom: 16 }}>🌸</div>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>🌿</div>
           <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 28, marginBottom: 8 }}>
             Начни собирать стильную систему
           </div>

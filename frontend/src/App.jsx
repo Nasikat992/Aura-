@@ -7,6 +7,7 @@ import Dashboard                   from './pages/Dashboard';
 import WardrobePage                from './pages/WardrobePage';
 import AccessoriesPage             from './pages/AccessoriesPage';
 import LooksPage                   from './pages/LooksPage';
+import AIGeneratePage              from './pages/AIGeneratePage';
 import TipsPage                    from './pages/TipsPage';
 import ProfilePage                 from './pages/ProfilePage';
 import FloatingGuide               from './components/FloatingGuide';
@@ -33,10 +34,13 @@ function AppLayout() {
       <main className="main-content">
         <Routes>
           <Route path="/"          element={<Dashboard />}   />
-          <Route path="/wardrobe"  element={<WardrobePage />}/>
-          <Route path="/accessories" element={<AccessoriesPage />}/>
+          <Route path="/wardrobe"  element={<Navigate to="/wardrobe/page/1" replace />}/>
+          <Route path="/wardrobe/page/:page" element={<WardrobePage />}/>
+          <Route path="/accessories" element={<Navigate to="/accessories/page/1" replace />}/>
+          <Route path="/accessories/page/:page" element={<AccessoriesPage />}/>
           <Route path="/looks"     element={<LooksPage />}   />
           <Route path="/tips"      element={<TipsPage />}    />
+          <Route path="/ai-generate" element={<AIGeneratePage />} />
           <Route path="/profile"   element={<ProfilePage />} />
           <Route path="*"          element={<Navigate to="/" replace />} />
         </Routes>

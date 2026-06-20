@@ -1,8 +1,12 @@
 import json
 import os
+import base64
+import mimetypes
+import uuid
 from urllib import error, request as urllib_request
 
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
 from django.db.models import Count
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -150,6 +154,111 @@ def generate_stylist_reply(user, session, content):
             pass
 
     return fallback_stylist_reply(user, content, wardrobe_items, accessory_items, history)
+
+
+def image_part_from_file(file_obj, fallback_mime='image/jpeg'):
+    mime_type = getattr(file_obj, 'content_type', '') or mimetypes.guess_type(getattr(file_obj, 'name', ''))[0]
+    if not mime_type:
+        mime_type = fallback_mime
+    file_obj.seek(0)
+    encoded = base64.b64encode(file_obj.read()).decode('ascii')
+    file_obj.seek(0)
+    return {
+        'inlineData': {
+            'mimeType': mime_type,
+            'data': encoded,
+        },
+    }
+
+
+def image_part_from_field(field_file):
+    mime_type = mimetypes.guess_type(field_file.name)[0] or 'image/jpeg'
+    with field_file.open('rb') as image_file:
+        encoded = base64.b64encode(image_file.read()).decode('ascii')
+    return {
+        'inlineData': {
+            'mimeType': mime_type,
+            'data': encoded,
+        },
+    }
+
+
+def build_outfit_preview_prompt(gender, items):
+    gender_map = {
+        'woman': 'woman',
+        'man': 'man',
+        'non_binary': 'person',
+        'prefer_not_to_say': 'person'
+    }
+    gender_word = gender_map.get(gender, 'person')
+    
+    item_lines = '\n'.join(
+        f'- A {item.color or "specified color"} {item.get_category_display()} (brand: {item.brand or "unspecified"}, details: {item.notes or "none"})'
+        for item in items
+    )
+    
+    return (
+        f"A hyper-realistic, professional, high-fashion full-body portrait photograph of a {gender_word} standing "
+        f"and posing for a premium clothing lookbook. The subject's face MUST be identical in features, identity, "
+        f"expression, shape, and skin tone to the face reference image. "
+        f"The subject is wearing a cohesive and stylish outfit consisting of the following specific wardrobe items "
+        f"reproduced from the clothing reference images:\n"
+        f"{item_lines}\n\n"
+        f"STRICT INSTRUCTIONS:\n"
+        f"1. FULL BODY SHOT: Show the complete outfit from head to toe. The model should have a natural, confident posture.\n"
+        f"2. GENDER INTEGRITY: The model's body structure and proportions must be that of a {gender_word}.\n"
+        f"3. FACE FUSION: Flawlessly blend the user's face from the input image onto the subject. The facial features, gaze, hair, and look must match the face reference photo with absolute realism.\n"
+        f"4. CLOTHING FAITHFULNESS: Every clothing item from the reference images must be rendered with high precision—matching its exact color, shape, fit, textile texture, and visual details. They must look like real fabric (denim, wool, cotton, leather).\n"
+        f"5. CINEMATIC QUALITY: Ultra-detailed 8K resolution, photorealistic fashion editorial style, soft studio lighting, sharp focus, clear textures, and a clean minimalist solid neutral studio background."
+    )
+
+
+def generate_outfit_preview_image(face_image, gender, items):
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key:
+        raise RuntimeError('GEMINI_API_KEY is not configured')
+
+    model = os.getenv('GEMINI_IMAGE_MODEL', 'gemini-3-pro-image')
+    prompt = build_outfit_preview_prompt(gender, items)
+    parts = [{'text': prompt}, image_part_from_file(face_image)]
+    parts.extend(image_part_from_field(item.image) for item in items)
+
+    payload = json.dumps(
+        {
+            'contents': [{'role': 'user', 'parts': parts}],
+            'generationConfig': {
+                'responseModalities': ['Image'],
+                'responseFormat': {
+                    'image': {
+                        'aspectRatio': 'ASPECT_RATIO_THREE_BY_FOUR',
+                    },
+                },
+            },
+        }
+    ).encode('utf-8')
+    req = urllib_request.Request(
+        f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+        data=payload,
+        headers={
+            'Content-Type': 'application/json',
+            'x-goog-api-key': api_key,
+        },
+        method='POST',
+    )
+
+    with urllib_request.urlopen(req, timeout=60) as response:
+        body = json.loads(response.read().decode('utf-8'))
+
+    for candidate in body.get('candidates', []):
+        for part in candidate.get('content', {}).get('parts', []):
+            inline_data = part.get('inlineData') or part.get('inline_data')
+            if inline_data and inline_data.get('data'):
+                image_bytes = base64.b64decode(inline_data['data'])
+                mime_type = inline_data.get('mimeType') or inline_data.get('mime_type') or 'image/png'
+                extension = mimetypes.guess_extension(mime_type) or '.png'
+                return ContentFile(image_bytes, name=f'outfit-preview-{uuid.uuid4().hex}{extension}')
+
+    raise ValueError('Gemini did not return an image')
 
 
 SHOE_CATEGORIES = {'sneakers', 'heels', 'boots', 'loafers', 'sandals'}
@@ -420,7 +529,7 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
     def messages(self, request, pk=None):
         session = self.get_object()
         if request.method.lower() == 'get':
-            data = ChatMessageSerializer(session.messages.order_by('created_at'), many=True).data
+            data = ChatMessageSerializer(session.messages.order_by('created_at'), many=True, context={'request': request}).data
             return Response(data)
 
         serializer = ChatMessageCreateSerializer(data=request.data)
@@ -439,7 +548,91 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 'session': ChatSessionSerializer(session).data,
-                'messages': ChatMessageSerializer([user_message, assistant_message], many=True).data,
+                'messages': ChatMessageSerializer([user_message, assistant_message], many=True, context={'request': request}).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['post'], url_path='outfit-preview')
+    def outfit_preview(self, request, pk=None):
+        session = self.get_object()
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        if not profile.gender:
+            return Response({'detail': 'Укажи пол в профиле, чтобы сгенерировать примерку.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        face_image = request.FILES.get('face_image')
+        if not face_image:
+            return Response({'detail': 'Загрузи фото лица для примерки.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not (getattr(face_image, 'content_type', '') or '').startswith('image/'):
+            return Response({'detail': 'Фото лица должно быть изображением.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_item_ids = request.data.get('item_ids', '[]')
+        try:
+            item_ids = json.loads(raw_item_ids) if isinstance(raw_item_ids, str) else raw_item_ids
+            item_ids = [int(item_id) for item_id in item_ids]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return Response({'detail': 'Некорректный список вещей.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        item_ids = list(dict.fromkeys(item_ids))
+        if not item_ids:
+            return Response({'detail': 'Выбери хотя бы одну вещь для примерки.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(item_ids) > 8:
+            return Response({'detail': 'Для одной примерки можно выбрать до 8 вещей.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        items_by_id = {
+            item.id: item
+            for item in WardrobeItem.objects.filter(user=request.user, id__in=item_ids)
+        }
+        if len(items_by_id) != len(item_ids):
+            return Response({'detail': 'Одна или несколько выбранных вещей недоступны.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        selected_items = [items_by_id[item_id] for item_id in item_ids]
+        missing_images = [item.name for item in selected_items if not item.image]
+        if missing_images:
+            return Response(
+                {'detail': 'У выбранных вещей должны быть фото: ' + ', '.join(missing_images)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        item_summary = ', '.join(item.name for item in selected_items)
+        user_message = ChatMessage.objects.create(
+            session=session,
+            role='user',
+            content=f'Сгенерируй примерку образа: {item_summary}',
+            metadata={'type': 'outfit_preview_request', 'item_ids': item_ids},
+        )
+        if not session.title:
+            session.title = 'AI примерка образа'
+
+        try:
+            generated_image = generate_outfit_preview_image(face_image, profile.gender, selected_items)
+        except RuntimeError as exc:
+            user_message.delete()
+            return Response({'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except (error.URLError, TimeoutError, ValueError, KeyError, json.JSONDecodeError, TypeError) as exc:
+            user_message.delete()
+            return Response(
+                {'detail': f'Не удалось сгенерировать примерку: {exc}'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        assistant_message = ChatMessage.objects.create(
+            session=session,
+            role='assistant',
+            content='Готово — собрала реалистичную примерку выбранного образа.',
+            image=generated_image,
+            metadata={
+                'type': 'outfit_preview',
+                'model': os.getenv('GEMINI_IMAGE_MODEL', 'gemini-3-pro-image'),
+                'item_ids': item_ids,
+            },
+        )
+        session.save(update_fields=['title', 'updated_at'])
+
+        return Response(
+            {
+                'session': ChatSessionSerializer(session).data,
+                'messages': ChatMessageSerializer([user_message, assistant_message], many=True, context={'request': request}).data,
             },
             status=status.HTTP_201_CREATED,
         )

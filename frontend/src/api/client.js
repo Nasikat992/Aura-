@@ -3,12 +3,12 @@ const BASE = '/api';
 
 function getTokens() {
   return {
-    access:  localStorage.getItem('aura_access'),
+    access: localStorage.getItem('aura_access'),
     refresh: localStorage.getItem('aura_refresh'),
   };
 }
 function setTokens(access, refresh) {
-  localStorage.setItem('aura_access',  access);
+  localStorage.setItem('aura_access', access);
   if (refresh) localStorage.setItem('aura_refresh', refresh);
 }
 export function clearTokens() {
@@ -20,9 +20,9 @@ async function refreshAccess() {
   const { refresh } = getTokens();
   if (!refresh) throw new Error('No refresh token');
   const res = await fetch(`${BASE}/auth/token/refresh/`, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ refresh }),
+    body: JSON.stringify({ refresh }),
   });
   if (!res.ok) throw new Error('Refresh failed');
   const data = await res.json();
@@ -65,11 +65,11 @@ async function request(method, url, body, isFormData = false) {
 }
 
 export const api = {
-  get:    (url)              => request('GET',    url),
-  post:   (url, body)        => request('POST',   url, body),
-  put:    (url, body)        => request('PUT',    url, body),
-  patch:  (url, body)        => request('PATCH',  url, body),
-  delete: (url)              => request('DELETE', url),
+  get: (url) => request('GET', url),
+  post: (url, body) => request('POST', url, body),
+  put: (url, body) => request('PUT', url, body),
+  patch: (url, body) => request('PATCH', url, body),
+  delete: (url) => request('DELETE', url),
   upload: (url, formData, method = 'POST') => request(method, url, formData, true),
 };
 

@@ -11,6 +11,7 @@ export default function AccessoriesPage() {
       emptyTitle="Аксессуаров пока нет"
       emptyDesc="Добавь часы, украшения, ремни или очки, и ассистент начнёт учитывать их в рекомендациях."
       addLabel="+ Добавить аксессуар"
+      baseUrl="/accessories"
     />
   );
 }

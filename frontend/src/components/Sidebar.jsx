@@ -7,6 +7,7 @@ const NAV = [
   { to: '/wardrobe',  icon: '👗', label: 'Гардероб'  },
   { to: '/accessories', icon: '👜', label: 'Аксессуары' },
   { to: '/tips',      icon: '💬', label: 'Ассистент' },
+  { to: '/ai-generate', icon: '🪄', label: 'AI Примерка' },
   { to: '/looks',     icon: '✨', label: 'Образы'    },
   { to: '/profile',   icon: '👤', label: 'Профиль'   },
 ];
@@ -51,7 +52,7 @@ export default function Sidebar() {
             <div style={{ fontSize: 11, letterSpacing: '0.5px' }}>{user.email}</div>
           </div>
         )}
-        <button className="nav-item" onClick={handleLogout} style={{ color: '#c0556a' }}>
+        <button className="nav-item" onClick={handleLogout} style={{ color: 'var(--sage-deep)' }}>
           <span className="nav-icon">🚪</span>
           Выйти
         </button>

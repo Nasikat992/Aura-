@@ -38,6 +38,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'user',
             'avatar',
             'avatar_url',
+            'gender',
             'bio',
             'occupation',
             'lifestyle',
@@ -116,10 +117,20 @@ class WardrobeItemSerializer(serializers.ModelSerializer):
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = ChatMessage
-        fields = ('id', 'role', 'content', 'created_at')
+        fields = ('id', 'role', 'content', 'image_url', 'metadata', 'created_at')
         read_only_fields = ('id', 'created_at')
+
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        if obj.image:
+            return obj.image.url
+        return None
 
 
 class ChatSessionSerializer(serializers.ModelSerializer):

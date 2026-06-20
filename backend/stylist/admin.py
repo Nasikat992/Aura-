@@ -11,7 +11,7 @@ class UserProfileInline(admin.StackedInline):
     can_delete = False
     verbose_name_plural = '✨ Профиль стилиста'
     fieldsets = (
-        ('Профиль', {'fields': ('avatar', 'bio')}),
+        ('Профиль', {'fields': ('avatar', 'gender', 'bio')}),
         ('Образ жизни', {'fields': ('occupation', 'lifestyle', 'favorite_occasions', 'city_climate', 'sizes_note')}),
     )
 
@@ -43,12 +43,12 @@ admin.site.register(User, UserAdmin)
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'occupation', 'lifestyle', 'favorite_occasions', 'updated_at')
-    list_filter = ('lifestyle',)
+    list_display = ('user', 'gender', 'occupation', 'lifestyle', 'favorite_occasions', 'updated_at')
+    list_filter = ('gender', 'lifestyle')
     search_fields = ('user__username', 'user__email', 'occupation', 'favorite_occasions', 'city_climate')
     readonly_fields = ('created_at', 'updated_at', 'wardrobe_count_display', 'accessories_count_display', 'chats_count_display')
     fieldsets = (
-        ('👤 Пользователь', {'fields': ('user', 'avatar', 'bio')}),
+        ('👤 Пользователь', {'fields': ('user', 'avatar', 'gender', 'bio')}),
         ('🌿 Образ жизни', {'fields': ('occupation', 'lifestyle', 'favorite_occasions', 'city_climate', 'sizes_note')}),
         ('📊 Статистика', {'fields': ('wardrobe_count_display', 'accessories_count_display', 'chats_count_display', 'created_at', 'updated_at')}),
     )
@@ -122,7 +122,7 @@ class WardrobeItemAdmin(admin.ModelAdmin):
 class ChatMessageInline(admin.TabularInline):
     model = ChatMessage
     extra = 0
-    readonly_fields = ('role', 'content', 'created_at')
+    readonly_fields = ('role', 'content', 'image', 'metadata', 'created_at')
     can_delete = False
 
 
