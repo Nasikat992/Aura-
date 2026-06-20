@@ -1,5 +1,5 @@
 // ── Axios-style fetch wrapper with JWT auth ──────────────────────
-const BASE = '/api';
+const BASE = process.env.REACT_APP_API_URL || '/api';
 
 function getTokens() {
   return {
