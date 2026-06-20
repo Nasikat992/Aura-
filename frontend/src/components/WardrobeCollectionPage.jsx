@@ -36,17 +36,20 @@ function buildItemPayload(form) {
 function ItemModal({ item, kind, onClose, onSaved }) {
   const toast = useToast();
   const categoryOptions = getCategoryOptions(kind);
-  const [form, setForm] = useState({
-    name: '',
-    category: categoryOptions[0]?.[0] || 'other',
-    color: '',
-    brand: '',
-    season: 'all',
-    purchase_date: '',
-    notes: '',
-    is_favorite: false,
-    ...(item || {}),
-    purchase_date: normalizePurchaseDate(item?.purchase_date),
+  const [form, setForm] = useState(() => {
+    const initial = {
+      name: '',
+      category: categoryOptions[0]?.[0] || 'other',
+      color: '',
+      brand: '',
+      season: 'all',
+      purchase_date: '',
+      notes: '',
+      is_favorite: false,
+      ...(item || {}),
+    };
+    initial.purchase_date = normalizePurchaseDate(initial.purchase_date);
+    return initial;
   });
   const [loading, setLoading] = useState(false);
   const [imgFile, setImgFile] = useState(null);

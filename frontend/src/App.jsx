@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth }  from './hooks/useAuth';
 import { ToastProvider }          from './hooks/useToast';
@@ -16,6 +17,10 @@ import './index.css';
 // ── Protected layout with sidebar ──
 function AppLayout() {
   const { user, loading } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
 
   if (loading) return (
     <div className="flex-center" style={{ minHeight:'100vh', flexDirection:'column', gap:16 }}>
@@ -30,7 +35,25 @@ function AppLayout() {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      {/* Mobile top header */}
+      <header className="mobile-header">
+        <button
+          className="hamburger-btn"
+          onClick={toggleSidebar}
+          aria-label="Открыть меню"
+        >
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+          <span className="hamburger-line" />
+        </button>
+        <div className="mobile-header-logo">
+          AU<span>RA</span>
+        </div>
+        <div className="mobile-header-spacer" />
+      </header>
+
+      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+
       <main className="main-content">
         <Routes>
           <Route path="/"          element={<Dashboard />}   />
