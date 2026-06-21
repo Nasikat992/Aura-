@@ -122,5 +122,8 @@ CORS_ALLOWED_ORIGINS = [
     'https://aura-gamma-pink.vercel.app',
     'https://aura-9wqujyxea-nasikat992s-projects.vercel.app',
 ]
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://aura-.*\.vercel\.app$",
+]
+CORS_ALLOW_ALL_ORIGINS = True  # Разрешаем все источники для удобства тестирования и превью на Vercel
 CORS_ALLOW_CREDENTIALS = True
